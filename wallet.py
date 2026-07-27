@@ -1,11 +1,27 @@
+from argon2 import PasswordHasher
+from argon2.exceptions import VerifyMismatchError
 from pathlib import Path
 import time
 import sys
+ph = PasswordHasher()
 
 # ~~ Paths ~~
 
+ici = Path(".")
 data = Path("data")
 mdp = data / "mdp.txt"
+authentification = ici / "auth.txt"
+
+
+# ~~ meow meow ~~
+
+def dameow(authentification):
+
+    with authentification.open("r") as f:
+        ligne = f.readline().strip()
+
+    return ligne
+
 
 # ~~ verification ~~
 
@@ -13,32 +29,53 @@ def verification():
 
     if not data.exists():
 
-        print("The 'data' directory doesn't exist. Would you like to create it ?")
+        print("/data doesn't exist. Would you like to create it ?")
         confirm = input("(y/n): ")
 
         if confirm.lower() == "y":
 
             data.mkdir()
-            mdp.touch()
-            print("Files created successfully.")
 
         else:
 
             print("Canceled.")
             return False
 
-    elif not mdp.exists():
+    if not mdp.exists():
 
         mdp.touch()
+
+    if not authentification.exists():
+
+        authentification.touch()
+
+    if dameow(authentification) == "":
+
+        print("No master password detected. Please enter a new one.")
+
+        password = input("New password: ")
+        confirm = input("Confirm password: ")
+
+        if password != confirm:
+
+            print("Passwords don't match.")
+            return False
+
+        password = ph.hash(password)
+
+        with authentification.open("w") as f:
+
+            f.write(password)
+
+        print("Master password created.\n")
 
     print("Files checked.")
     return True
 
+
 # ~~ password ~~
 
-def entry():
-
-    password = "dddd"
+def entry(THE_PASS):
 
     count = 3
 
@@ -46,23 +83,23 @@ def entry():
 
         ePass = input("Enter password: ")
 
-        if ePass == password:
-
+        
+        try:
+            ph.verify(THE_PASS, ePass)
             print("Correct password.")
             return True
+        except VerifyMismatchError:
+            count -= 1
+            print("Incorrect password,", count, "attempt(s) left.")
+            if count == 0:
+                print("Waiting for 1 minute...")
+                time.sleep(60)
+                print("Done waiting!")
+                count = 3
+                print("You can try again")
 
-        count -= 1
-        print("Incorrect password,", count, "attempt(s) left.")
 
-        if count == 0:
-
-            print("Waiting for 1 minute...")
-            time.sleep(60)
-            print("Done waiting!")
-
-            count = 3
-
-# ~~ save passwords ~~
+# ~~ saving stuff ~~
 
 def save_passwords(passwords):
 
@@ -72,7 +109,8 @@ def save_passwords(passwords):
 
             f.write(f"{site}={password}\n")
 
-# ~~ load passwords ~~
+
+# ~~ loading shit ~~
 
 def load_passwords():
 
@@ -92,6 +130,7 @@ def load_passwords():
             passwords[site] = password
 
     return passwords
+
 
 # ~~ add password ~~
 
@@ -119,6 +158,7 @@ def add():
 
     print("Password saved.")
 
+
 # ~~ read password ~~
 
 def read():
@@ -134,6 +174,7 @@ def read():
     else:
 
         print("Password not found.")
+
 
 # ~~ delete password ~~
 
@@ -155,32 +196,41 @@ def delete():
 
         print("Password not found.")
 
+
 # ~~ arguments ~~
 
-if verification():
+try:
 
-    if len(sys.argv) < 2:
+    if verification():
 
-        print("No argument.")
+        THE_PASS = dameow(authentification)
 
-    else:
+        if len(sys.argv) < 2:
 
-        if entry():
+            print("No argument.")
 
-            argument = sys.argv[1]
+        else:
 
-            if argument == "--add":
+            if entry(THE_PASS):
 
-                add()
+                argument = sys.argv[1]
 
-            elif argument == "--read":
+                if argument == "--add":
 
-                read()
+                    add()
 
-            elif argument == "--delete":
+                elif argument == "--read":
 
-                delete()
+                    read()
 
-            else:
+                elif argument == "--delete":
 
-                print("Unknown argument.")
+                    delete()
+
+                else:
+
+                    print("Unknown argument.")
+
+except KeyboardInterrupt:
+
+    print("\n Fine I'll let ya run away.")
