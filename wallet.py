@@ -198,6 +198,34 @@ def delete():
 
 
 # ~~ arguments ~~
+if len(sys.argv) < 2:
+    print("No argument.")
+else:
+    argument = sys.argv[1]
+
+    if argument == "--help" or argument == "-h":
+
+        print(
+                        "Wallet - Local Password Manager\n"
+                        "\n"
+                        "USAGE\n"
+                    "    wallet [OPTION]\n"
+                    "\n"
+                    "OPTIONS\n"
+                    "    -a, --add        Add or replace a password\n"
+                    "    -r, --read       Display a saved password\n"
+                    "    -d, --delete     Delete a saved password\n"
+                    "    -h, --help       Display this help message\n"
+                    "\n"
+                    "EXAMPLES\n"
+                    "    wallet -a\n"
+                    "    wallet --read\n"
+                    "    wallet -d\n"
+                    "\n"
+                    "Passwords are stored locally.\n"
+
+
+                    "Made by Soum using Python")
 
 try:
 
@@ -215,18 +243,18 @@ try:
 
                 argument = sys.argv[1]
 
-                if argument == "--add":
+                if argument == "--add" or argument == "-a":
 
                     add()
 
-                elif argument == "--read":
+                elif argument == "--read" or argument == "-r":
 
                     read()
 
-                elif argument == "--delete":
+                elif argument == "--delete" or argument == "-d":
 
                     delete()
-
+                
                 else:
 
                     print("Unknown argument.")
