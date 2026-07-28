@@ -1,8 +1,10 @@
+from getpass import getpass
 from argon2 import PasswordHasher
 from argon2.exceptions import VerifyMismatchError
 from pathlib import Path
 import time
 import sys
+
 ph = PasswordHasher()
 
 # ~~ Paths ~~
@@ -24,10 +26,36 @@ def dameow(authentification):
 
 # ~~ reset password ~~
 
+def reset_password(THE_PASS):
 
-########################################################################################
+    print("Reset master password\n")
 
+    old = getpass("Current password: ")
 
+    try:
+
+        ph.verify(THE_PASS, old)
+
+    except VerifyMismatchError:
+
+        print("Wrong password.")
+        return
+
+    new = getpass("New password: ")
+    confirm = getpass("Confirm password: ")
+
+    if new != confirm:
+
+        print("Passwords don't match.")
+        return
+
+    new_hash = ph.hash(new)
+
+    with authentification.open("w") as f:
+
+        f.write(new_hash)
+
+    print("Master password updated.")
 
 # ~~ verification ~~
 
@@ -92,7 +120,7 @@ def entry(THE_PASS):
 
     while True:
 
-        ePass = input("Enter password: ")
+        ePass = getpass("Enter password: ")
 
         
         try:
@@ -221,6 +249,7 @@ def delete():
 
 
 # ~~ arguments ~~
+
 if len(sys.argv) < 2:
     print("No argument.")
 else:
@@ -281,6 +310,9 @@ try:
                 elif argument == "--list" or argument == "-l":
 
                     list_sites()
+                elif argument == "--reset-password" or argument == "-rp":
+
+                    reset_password(THE_PASS)
                 else:
 
                     print("Unknown argument.")
