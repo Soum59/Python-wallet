@@ -22,6 +22,12 @@ def dameow(authentification):
 
     return ligne
 
+# ~~ reset password ~~
+
+
+########################################################################################
+
+
 
 # ~~ verification ~~
 
@@ -45,6 +51,12 @@ def verification():
 
         mdp.touch()
 
+    if mdp.exists() and not authentification.exists():
+
+        print("Authentication file missing.")
+        print("Database locked.")
+        return False
+
     if not authentification.exists():
 
         authentification.touch()
@@ -53,8 +65,8 @@ def verification():
 
         print("No master password detected. Please enter a new one.")
 
-        password = input("New password: ")
-        confirm = input("Confirm password: ")
+        password = getpass("New password: ")
+        confirm = getpass("Confirm password: ")
 
         if password != confirm:
 
@@ -71,7 +83,6 @@ def verification():
 
     print("Files checked.")
     return True
-
 
 # ~~ password ~~
 
@@ -110,7 +121,7 @@ def save_passwords(passwords):
             f.write(f"{site}={password}\n")
 
 
-# ~~ loading shit ~~
+# ~~ loading stuff ~~
 
 def load_passwords():
 
@@ -130,6 +141,18 @@ def load_passwords():
             passwords[site] = password
 
     return passwords
+
+# ~~ list stuff ~~
+
+
+def list_sites():
+
+    passwords = load_passwords()
+
+    print("\nSaved websites:\n")
+
+    for site in passwords:
+        print(" -", site)
 
 
 # ~~ add password ~~
@@ -255,6 +278,9 @@ try:
 
                     delete()
                 
+                elif argument == "--list" or argument == "-l":
+
+                    list_sites()
                 else:
 
                     print("Unknown argument.")
