@@ -1,9 +1,17 @@
+#!/usr/bin/env python3
+from cryptography.fernet import Fernet, InvalidToken
+from cryptography.hazmat.primitives.kdf.scrypt import Scrypt
+import base64
+import os
 from getpass import getpass
 from argon2 import PasswordHasher
 from argon2.exceptions import VerifyMismatchError
 from pathlib import Path
 import time
 import sys
+import json
+from colorama import Fore, Style, init
+init()
 
 ph = PasswordHasher()
 
@@ -11,9 +19,9 @@ ph = PasswordHasher()
 
 ici = Path(".")
 data = Path("data")
-mdp = data / "mdp.txt"
+mdp = data / "mdp.bin"
 authentification = ici / "auth.txt"
-
+salt = ici / "salt.bin"
 
 # ~~ meow meow ~~
 
@@ -63,26 +71,14 @@ def verification():
 
     if not data.exists():
 
-        print("/data doesn't exist. Would you like to create it ?")
-        confirm = input("(y/n): ")
-
-        if confirm.lower() == "y":
-
-            data.mkdir()
-
-        else:
-
-            print("Canceled.")
-            return False
-
-    if not mdp.exists():
-
+        print(Fore.RED + "/data doesn't exist. Creating files...")
+        print(Style.RESET_ALL)
+        data.mkdir()
         mdp.touch()
 
-    if mdp.exists() and not authentification.exists():
-
-        print("Authentication file missing.")
-        print("Database locked.")
+    if authentification.exists() and mdp.stat().st_size > 0 and dameow(authentification) == "":
+        print(Fore.RED + "Error. Absent master password")
+        print(Style.RESET_ALL)
         return False
 
     if not authentification.exists():
@@ -101,95 +97,138 @@ def verification():
             print("Passwords don't match.")
             return False
 
-        password = ph.hash(password)
+        password_hash = ph.hash(password)
 
         with authentification.open("w") as f:
 
-            f.write(password)
+            f.write(password_hash)
+        key = load_key(password)
+        encrypt_database({}, key)
 
         print("Master password created.\n")
 
     print("Files checked.")
     return True
 
+# ~~ load_keys ~~
+
+def load_key(master_password):
+
+    kdf = Scrypt(
+
+        salt=salty(),
+
+        length=32,
+        n=2**14,
+        r=8,
+        p=1,
+
+    )
+
+    key = kdf.derive(master_password.encode())
+
+    return base64.urlsafe_b64encode(key)
+
+# ~~ Fernet ~~
+
+def encrypt_database(passwords, key):
+
+    fernet = Fernet(key)
+
+    data = json.dumps(passwords)
+
+    cipher = fernet.encrypt(data.encode())
+
+    mdp.write_bytes(cipher)
+
+# ~~ decrypt ~~
+
+def decrypt_database(key):
+
+    if not mdp.exists() or mdp.stat().st_size == 0:
+        return {}
+
+    fernet = Fernet(key)
+
+    try:
+
+        cipher = mdp.read_bytes()
+
+        data = fernet.decrypt(cipher)
+
+        return json.loads(data.decode())
+
+    except InvalidToken:
+
+        print("Unable to decrypt database.")
+        return {}
+
+# ~~ hmm salty ~~
+
+def salty():
+
+    if not salt.exists():
+
+        random = os.urandom(16)
+
+        salt.write_bytes(random)
+
+    return salt.read_bytes()
+
 # ~~ password ~~
 
-def entry(THE_PASS):
 
+def entry(THE_PASS):
     count = 3
 
     while True:
+        ePass = getpass("Enter the master password: ")
 
-        ePass = getpass("Enter password: ")
-
-        
         try:
+
             ph.verify(THE_PASS, ePass)
-            print("Correct password.")
-            return True
+
+            print(Fore.GREEN + "Correct password.")
+
+            return ePass
         except VerifyMismatchError:
+
             count -= 1
-            print("Incorrect password,", count, "attempt(s) left.")
+
+            print(Fore.RED + "Incorrect password,", count, "attempt(s) left.")
+
             if count == 0:
+
                 print("Waiting for 1 minute...")
                 time.sleep(60)
+
                 print("Done waiting!")
+
                 count = 3
                 print("You can try again")
 
-
-# ~~ saving stuff ~~
-
-def save_passwords(passwords):
-
-    with mdp.open("w") as f:
-
-        for site, password in passwords.items():
-
-            f.write(f"{site}={password}\n")
-
-
-# ~~ loading stuff ~~
-
-def load_passwords():
-
-    passwords = {}
-
-    with mdp.open("r") as f:
-
-        for ligne in f:
-
-            ligne = ligne.strip()
-
-            if ligne == "":
-                continue
-
-            site, password = ligne.split("=")
-
-            passwords[site] = password
-
-    return passwords
-
 # ~~ list stuff ~~
 
+def list_sites(key):
 
-def list_sites():
+    passwords = decrypt_database(key)
 
-    passwords = load_passwords()
+    print(f"\n{Fore.CYAN}Saved websites:\n{Style.RESET_ALL}")
 
-    print("\nSaved websites:\n")
+    for i, site in enumerate(passwords):
 
-    for site in passwords:
-        print(" -", site)
-
+        if i % 2 == 0:
+            print(f"{Fore.RED} - {site}{Style.RESET_ALL}")
+        else:
+            print(f"{Fore.WHITE} - {site}{Style.RESET_ALL}")
 
 # ~~ add password ~~
 
-def add():
+def add(key):
 
-    passwords = load_passwords()
+    passwords = decrypt_database(key)
 
-    site = input("Website: ")
+    site = input("Website: ").lower()
     password = input("Password: ")
 
     if site in passwords:
@@ -205,18 +244,19 @@ def add():
 
     passwords[site] = password
 
-    save_passwords(passwords)
+    encrypt_database(passwords, key)
 
     print("Password saved.")
 
 
+
 # ~~ read password ~~
 
-def read():
+def read(key):
 
-    passwords = load_passwords()
+    passwords = decrypt_database(key)
 
-    site = input("Website: ")
+    site = input("Website: ").lower()
 
     if site in passwords:
 
@@ -229,17 +269,17 @@ def read():
 
 # ~~ delete password ~~
 
-def delete():
+def delete(key):
 
-    passwords = load_passwords()
+    passwords = decrypt_database(key)
 
-    site = input("Website: ")
+    site = input("Website: ").lower()
 
     if site in passwords:
 
         del passwords[site]
 
-        save_passwords(passwords)
+        encrypt_database(passwords, key)
 
         print("Password deleted.")
 
@@ -264,10 +304,12 @@ else:
                     "    wallet [OPTION]\n"
                     "\n"
                     "OPTIONS\n"
-                    "    -a, --add        Add or replace a password\n"
-                    "    -r, --read       Display a saved password\n"
-                    "    -d, --delete     Delete a saved password\n"
-                    "    -h, --help       Display this help message\n"
+                    "    -a,  --add        Add or replace a password\n"
+                    "    -r,  --read       Display a saved password\n"
+                    "    -rp, --reset      Create new master password\n"
+                    "    -d,  --delete     Delete a saved password\n"
+                    "    -h,  --help       Display this help message\n"
+                    "    -l,  --list       Display each existant sites\n"
                     "\n"
                     "EXAMPLES\n"
                     "    wallet -a\n"
@@ -278,6 +320,7 @@ else:
 
 
                     "Made by Soum using Python")
+        sys.exit()
 
 try:
 
@@ -291,31 +334,34 @@ try:
 
         else:
 
-            if entry(THE_PASS):
+            master_password = entry(THE_PASS)
 
-                argument = sys.argv[1]
+            key = load_key(master_password)
 
-                if argument == "--add" or argument == "-a":
+            argument = sys.argv[1]
 
-                    add()
 
-                elif argument == "--read" or argument == "-r":
+            if argument == "--add" or argument == "-a":
 
-                    read()
+                add(key)
 
-                elif argument == "--delete" or argument == "-d":
+            elif argument == "--read" or argument == "-r":
 
-                    delete()
-                
-                elif argument == "--list" or argument == "-l":
+                read(key)
 
-                    list_sites()
-                elif argument == "--reset-password" or argument == "-rp":
+            elif argument == "--delete" or argument == "-d":
 
-                    reset_password(THE_PASS)
-                else:
+                delete(key)
+            elif argument == "--list" or argument == "-l":
 
-                    print("Unknown argument.")
+                list_sites(key)
+            elif argument == "--reset" or argument == "-rp":
+
+#                reset_password(THE_PASS) 
+                 print("Temporally not working :(")
+            else:
+
+                print("Unknown argument.")
 
 except KeyboardInterrupt:
 
