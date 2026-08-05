@@ -79,7 +79,7 @@ def verification():
         print(Fore.RED + "/data doesn't exist here. Would you like to create files ?")
         confirm = input("(y/n)").lower()
         print(Style.RESET_ALL)
-        if confirm == y:
+        if confirm == "y":
             data.mkdir()
             mdp.touch()
         else:
