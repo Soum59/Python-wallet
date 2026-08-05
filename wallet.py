@@ -1,16 +1,21 @@
 #!/usr/bin/env python3
-from cryptography.fernet import Fernet, InvalidToken
-from cryptography.hazmat.primitives.kdf.scrypt import Scrypt
-import base64
-import os
-from getpass import getpass
-from argon2 import PasswordHasher
-from argon2.exceptions import VerifyMismatchError
-from pathlib import Path
-import time
-import sys
-import json
-from colorama import Fore, Style, init
+try :
+    from cryptography.fernet import Fernet, InvalidToken
+    from cryptography.hazmat.primitives.kdf.scrypt import Scrypt
+    import base64
+    import os
+    from getpass import getpass
+    from argon2 import PasswordHasher
+    from argon2.exceptions import VerifyMismatchError
+    from pathlib import Path
+    import time
+    import sys
+    import json
+    from colorama import Fore, Style, init
+
+except ModuleNotFoundError:
+    print("Modules arent installed yet. run :\npython3 -m pip install --user cryptography argon2-cffi colorama\n On UNIX based OS")
+
 init()
 
 ph = PasswordHasher()
@@ -160,7 +165,8 @@ def decrypt_database(key):
 
     except InvalidToken:
 
-        print("Unable to decrypt database.")
+        print(Fore.RED + "FATAL : Unable to decrypt database.")
+        print(Style.RESET_ALL)
         return {}
 
 # ~~ hmm salty ~~
@@ -189,14 +195,14 @@ def entry(THE_PASS):
             ph.verify(THE_PASS, ePass)
 
             print(Fore.GREEN + "Correct password.")
-
+            print(Style.RESET_ALL)
             return ePass
         except VerifyMismatchError:
 
             count -= 1
 
             print(Fore.RED + "Incorrect password,", count, "attempt(s) left.")
-
+            print(Style.RESET_ALL)
             if count == 0:
 
                 print("Waiting for 1 minute...")
@@ -366,3 +372,5 @@ try:
 except KeyboardInterrupt:
 
     print("\n Fine I'll let ya run away.")
+
+
