@@ -76,10 +76,14 @@ def verification():
 
     if not data.exists():
 
-        print(Fore.RED + "/data doesn't exist. Creating files...")
+        print(Fore.RED + "/data doesn't exist here. Would you like to create files ?")
+        confirm = input("(y/n)").lower()
         print(Style.RESET_ALL)
-        data.mkdir()
-        mdp.touch()
+        if confirm == y:
+            data.mkdir()
+            mdp.touch()
+        else:
+            print("Canceled")
 
     if authentification.exists() and mdp.stat().st_size > 0 and dameow(authentification) == "":
         print(Fore.RED + "Error. Absent master password")
